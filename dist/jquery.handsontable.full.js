@@ -986,9 +986,9 @@ Handsontable.Core = function (rootElement, userSettings) {
     if (typeof row === "object") { //is it an array of changes
       return row;
     }
-    else if ($.isPlainObject(value)) { //backwards compatibility
-      return value;
-    }
+    // else if ($.isPlainObject(value)) { //backwards compatibility
+    //   return value;
+    // } NS EDIT we're rendering each cell as an object
     else {
       return [
         [row, prop_or_col, value]
@@ -1208,7 +1208,9 @@ Handsontable.Core = function (rootElement, userSettings) {
 
     priv.isPopulated = false;
     GridSettings.prototype.data = data;
-
+    // Array.isArray correctly knows that an object property that is an array is still an array
+    // unlike instance of
+    // FIXED THIS NICK STEFAN
     if (Handsontable.helper.isArray(priv.settings.dataSchema) || Handsontable.helper.isArray(data[0])) {
       instance.dataType = 'array';
     }
@@ -1927,7 +1929,8 @@ Handsontable.Core = function (rootElement, userSettings) {
    * @return {Number}
    */
   this.countCols = function () {
-    if (instance.dataType === 'object' || instance.dataType === 'function') {
+    // FIXED THIS NICK STEFAN
+    if (instance.dataType === 'obj' || instance.dataType === 'function') {
       if (priv.settings.columns && priv.settings.columns.length) {
         return priv.settings.columns.length;
       }
@@ -1935,7 +1938,7 @@ Handsontable.Core = function (rootElement, userSettings) {
         return datamap.colToPropCache.length;
       }
     }
-    else if (instance.dataType === 'array') {
+    else if (instance.dataType === 'array' || 'object') {
       if (priv.settings.columns && priv.settings.columns.length) {
         return priv.settings.columns.length;
       }
@@ -3580,7 +3583,15 @@ Handsontable.TableView.prototype.mainViewIsActive = function () {
 
                 case keyCodes.BACKSPACE:
                 case keyCodes.DELETE:
+                  // NS EDITS to get DELETE not to delete whole cellObj
+                  // and only cell value
+                  var row = priv.selRange.highlight.row;
+                  var col = priv.selRange.highlight.col;
+                  var cellObj = instance.getDataAtCell(row, col);
                   selection.empty(event);
+                  cellObj.value = "";
+                  instance.setDataAtCell(row,col,cellObj);
+                   // END NS EDIT
                   that.prepareEditor();
                   event.preventDefault();
                   break;
@@ -5246,6 +5257,7 @@ Handsontable.helper.toString = function (obj) {
   };
 
   BaseEditor.prototype.saveValue = function (val, ctrlDown) {
+
     if (ctrlDown) { //if ctrl+enter and multiple cells selected, behave like Excel (finish editing and apply to all cells)
       var sel = this.instance.getSelected()
         , tmp;
@@ -5278,10 +5290,11 @@ Handsontable.helper.toString = function (obj) {
 
     this.state = Handsontable.EditorState.EDITING;
 
-    initialValue = typeof initialValue == 'string' ? initialValue : this.originalValue;
-
-    this.setValue(Handsontable.helper.stringify(initialValue));
-
+    //initialValue = typeof initialValue == 'string' ? initialValue : this.originalValue;
+    
+    //this.setValue(Handsontable.helper.stringify(initialValue));
+    initialValue = this.originalValue; // NS EDIT
+    this.setValue(initialValue); // NS EDIT
     this.open();
     this._opened = true;
     this.focus();
@@ -5324,9 +5337,10 @@ Handsontable.helper.toString = function (obj) {
       }
 
 
-      var val = [
-        [String.prototype.trim.call(this.getValue())] //String.prototype.trim is defined in Walkontable polyfill.js
-      ];
+      //var val = [
+      //  [String.prototype.trim.call(this.getValue())] //String.prototype.trim is defined in Walkontable polyfill.js
+      //];
+      var val = [[this.getValue()]]; // NS EDIT
 
       this.state = Handsontable.EditorState.WAITING;
 
@@ -8779,7 +8793,7 @@ Handsontable.hooks.register('afterColumnSort');
     var menu = this.menus.pop();
     if (menu) {
       this.hide(menu);
-//			this.close(menu);
+//      this.close(menu);
     }
 
   };
@@ -9343,7 +9357,7 @@ function Comments(instance) {
       instance.render();
     },
     saveComment = function (range, comment, instance) {
-		 //LIKE IN EXCEL (TOP LEFT CELL)
+     //LIKE IN EXCEL (TOP LEFT CELL)
       doSaveComment(range.from.row, range.from.col, comment, instance);
     },
     hideCommentTextArea = function () {
@@ -9353,14 +9367,14 @@ function Comments(instance) {
     },
     bindMouseEvent = function (range) {
 
-			function commentsListener(event) {
-				$(document).off('mouseover.htCommment');
+      function commentsListener(event) {
+        $(document).off('mouseover.htCommment');
         if (!(event.target.className == 'htCommentTextArea' || event.target.innerHTML.indexOf('Comment') != -1)) {
           var value = document.getElementsByClassName('htCommentTextArea')[0].value;
           if (value.trim().length > 1) {
             saveComment(range, value, instance);
           }
-		      unBindMouseEvent();
+          unBindMouseEvent();
           hideCommentTextArea();
         }
       }
@@ -9369,7 +9383,7 @@ function Comments(instance) {
     },
     unBindMouseEvent = function () {
       $(document).off('mousedown.htCommment');
-			$(document).on('mouseover.htCommment', Handsontable.helper.proxy(commentsMouseOverListener));
+      $(document).on('mouseover.htCommment', Handsontable.helper.proxy(commentsMouseOverListener));
     },
     placeCommentBox = function (range, commentBox) {
       var TD = instance.view.wt.wtTable.getCell(range.from),
@@ -9396,7 +9410,7 @@ function Comments(instance) {
         document.getElementsByTagName('body')[0].appendChild(comments);
       }
 
-			value = value ||'';
+      value = value ||'';
 
       document.getElementsByClassName('htCommentTextArea')[0].value = value;
 
@@ -9406,7 +9420,7 @@ function Comments(instance) {
     },
     commentsMouseOverListener = function (event) {
         if(event.target.className.indexOf('htCommentCell') != -1) {
-						unBindMouseEvent();
+            unBindMouseEvent();
             var coords = instance.view.wt.wtTable.getCoords(event.target);
             var range = {
                 from: new WalkontableCellCoords(coords.row, coords.col)
@@ -9424,7 +9438,7 @@ function Comments(instance) {
         $(document).on('mouseover.htCommment', Handsontable.helper.proxy(commentsMouseOverListener));
     },
     showComment: function (range) {
-			var meta = instance.getCellMeta(range.from.row, range.from.col),
+      var meta = instance.getCellMeta(range.from.row, range.from.col),
         value = '';
 
       if (meta.comment) {
@@ -11800,19 +11814,19 @@ Handsontable.MergeCells = MergeCells;
     }
   };
 
-	/***
-	 * get index of border setting
-	 * @param className
-	 * @returns {number}
-	 */
-	var getSettingIndex = function (className) {
-		for (var i = 0; i < instance.view.wt.selections.length; i++){
-			if (instance.view.wt.selections[i].settings.className == className){
-				return i;
-			}
-		}
-		return -1;
-	};
+  /***
+   * get index of border setting
+   * @param className
+   * @returns {number}
+   */
+  var getSettingIndex = function (className) {
+    for (var i = 0; i < instance.view.wt.selections.length; i++){
+      if (instance.view.wt.selections[i].settings.className == className){
+        return i;
+      }
+    }
+    return -1;
+  };
 
   /***
    * Insert WalkontableSelection instance into Walkontable.settings
@@ -11824,13 +11838,13 @@ Handsontable.MergeCells = MergeCells;
       col: border.col
     };
     var selection = new WalkontableSelection(border, new WalkontableCellRange(coordinates, coordinates, coordinates));
-		var index = getSettingIndex(border.className);
+    var index = getSettingIndex(border.className);
 
-		if(index >=0) {
-			instance.view.wt.selections[index] = selection;
-		} else {
-			instance.view.wt.selections.push(selection);
-		}
+    if(index >=0) {
+      instance.view.wt.selections[index] = selection;
+    } else {
+      instance.view.wt.selections.push(selection);
+    }
   };
 
   /***
@@ -11996,16 +12010,16 @@ Handsontable.MergeCells = MergeCells;
    * @param borderClassName
    */
   var removeBordersFromDom = function (borderClassName) {
-	  var borders = document.getElementsByClassName(borderClassName);
+    var borders = document.getElementsByClassName(borderClassName);
 
-		for(var i = 0; i< borders.length; i++) {
-			if (borders[i]) {
-				if(borders[i].nodeName != 'TD') {
-					var parent = borders[i].parentNode;
-      		parent.parentNode.removeChild(parent);
-				}
-			}
-		}
+    for(var i = 0; i< borders.length; i++) {
+      if (borders[i]) {
+        if(borders[i].nodeName != 'TD') {
+          var parent = borders[i].parentNode;
+          parent.parentNode.removeChild(parent);
+        }
+      }
+    }
   };
 
 
@@ -12046,7 +12060,7 @@ Handsontable.MergeCells = MergeCells;
 
     var borderClassName = createClassName(row,col);
     removeBordersFromDom(borderClassName);
-		insertBorderIntoSettings(bordersMeta);
+    insertBorderIntoSettings(bordersMeta);
 
     this.render();
   };
@@ -12061,7 +12075,7 @@ Handsontable.MergeCells = MergeCells;
    */
   var prepareBorder = function (range, place, remove) {
 
-		if (range.from.row == range.to.row && range.from.col == range.to.col){
+    if (range.from.row == range.to.row && range.from.col == range.to.col){
       if(place == "noBorders"){
         removeAllBorders.call(this, range.from.row, range.from.col);
       } else {
@@ -12248,7 +12262,7 @@ Handsontable.MergeCells = MergeCells;
         }
       }
 
-			this.render();
+      this.render();
       this.view.wt.draw(true);
     }
 
@@ -14364,7 +14378,7 @@ WalkontableOverlay.prototype.init = function () {
 WalkontableOverlay.prototype.makeClone = function (direction) {
   var clone = document.createElement('DIV');
   clone.className = 'ht_clone_' + direction + ' handsontable';
-	clone.style.position = 'absolute';
+  clone.style.position = 'absolute';
   clone.style.overflow = 'hidden';
 
   var table2 = document.createElement('TABLE');
