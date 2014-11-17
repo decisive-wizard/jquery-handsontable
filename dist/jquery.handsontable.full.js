@@ -3590,6 +3590,7 @@ Handsontable.TableView.prototype.mainViewIsActive = function () {
                   var cellObj = instance.getDataAtCell(row, col);
                   selection.empty(event);
                   cellObj.value = "";
+                  cellObj.formula = "";
                   instance.setDataAtCell(row,col,cellObj);
                    // END NS EDIT
                   that.prepareEditor();
